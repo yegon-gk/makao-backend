@@ -1,9 +1,8 @@
 // src/index.js
 import express from 'express';
-import cors from 'cors';
 import dotenv from 'dotenv';
-import morgan from 'morgan';
-import 'express-async-errors'; // Handle async errors in routes
+import cors from 'cors';
+import authRoutes from './routes/authRoutes.js';
 
 // Load environment variables
 dotenv.config();
@@ -13,12 +12,14 @@ const app = express();
 
 // Middleware
 app.use(cors());
-app.use(express.json()); // Parse JSON request bodies
-app.use(morgan('dev'));  // HTTP request logger
+app.use(express.json());
 
-// Simple route
+// Routes
+app.use('/api/auth', authRoutes);
+
+// Health check route
 app.get('/', (req, res) => {
-  res.json({ message: 'Makao Backend API is running!' });
+  res.send('Makao Backend API is running...');
 });
 
 // Start server
