@@ -9,7 +9,7 @@ export const register = async (req, res) => {
     const { username, email, password, phone, role } = req.body;
 
     // Validate required fields
-    if (!username || !email || !password || !role) {  // <- role is now required
+    if (!username || !email || !password || !role) {
       return res.status(400).json({ message: 'Username, email, password, and role are required' });
     }
 
@@ -17,11 +17,21 @@ export const register = async (req, res) => {
     const trimmedEmail = email.trim().toLowerCase();
 
     // Check if email already exists
-    const existingUser = await prisma.user.findUnique({
+    const existingEmail = await prisma.user.findUnique({
       where: { email: trimmedEmail },
     });
-    if (existingUser) {
-      return res.status(409).json({ message: 'Email already registered' });
+    if (existingEmail) {
+      return res.status(409).json({ message: 'User details already exist' });
+    }
+
+    // Check if phone already exists (if provided)
+    if (phone) {
+      const existingPhone = await prisma.user.findUnique({
+        where: { phone },
+      });
+      if (existingPhone) {
+        return res.status(409).json({ message: 'User details already exist' });
+      }
     }
 
     // Hash the password
@@ -32,15 +42,16 @@ export const register = async (req, res) => {
       data: {
         username: trimmedUsername,
         email: trimmedEmail,
-        password_hash: hashedPassword,  // <- matches schema
-        phone,                           // optional
-        role,                            // required
+        password_hash: hashedPassword, // <- matches schema
+        phone: phone || null,
+        role,
       },
       select: {
         user_id: true,
         username: true,
         email: true,
-        role: true,                      // <- include role in response
+        role: true,
+        phone: true,
       },
     });
 
@@ -50,6 +61,12 @@ export const register = async (req, res) => {
     });
   } catch (error) {
     console.error('Register error:', error);
+
+    // Handle Prisma unique constraint errors gracefully
+    if (error.code === 'P2002') {
+      return res.status(409).json({ message: 'User details already exist' });
+    }
+
     return res.status(500).json({ message: 'Server error' });
   }
 };
@@ -66,7 +83,7 @@ export const login = async (req, res) => {
 
     const trimmedEmail = email.trim().toLowerCase();
 
-    // Find user
+    // Find user by email
     const user = await prisma.user.findUnique({
       where: { email: trimmedEmail },
     });
@@ -76,14 +93,14 @@ export const login = async (req, res) => {
     }
 
     // Compare password
-    const isMatch = await bcrypt.compare(password, user.password_hash);  // <- corrected field
+    const isMatch = await bcrypt.compare(password, user.password_hash);
     if (!isMatch) {
       return res.status(400).json({ message: 'Invalid email or password' });
     }
 
     // Generate JWT
     const token = jwt.sign(
-      { id: user.user_id, email: user.email, role: user.role },  // <- include role
+      { id: user.user_id, email: user.email, role: user.role },
       process.env.JWT_SECRET || 'secret',
       { expiresIn: '1d' }
     );
