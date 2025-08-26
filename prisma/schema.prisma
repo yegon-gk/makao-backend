@@ -1,31 +1,32 @@
-// prisma/schema.prisma
-
+// ======= Prisma Generator & Datasource =======
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql" // change to "mysql" or "sqlite" if needed
-  url      = env("DATABASE_URL")
+  provider = "postgresql"                     // Corrected: Ensure datasource block exists
+  url      = env("DATABASE_URL")             // Corrected: Reads DB URL from .env
 }
 
+// ======= User Model =======
 model User {
-  user_id             Int        @id @default(autoincrement())
+  user_id             Int        @id @default(autoincrement())  // Primary key
+  username            String     @unique                       // Corrected: Added username field
   email               String     @unique
-  password_hash       String
+  password_hash       String                                 // Corrected: Field name must match Prisma model usage
   phone               String?    @unique
-  role                String     // tenant | landlord | lister
+  role                String                                  // tenant | landlord | lister
   profile_data        Json?
   verification_status Boolean    @default(false)
   created_at          DateTime   @default(now())
   updated_at          DateTime   @updatedAt
 
-  // Relations
   landlordProperties  Property[] @relation("LandlordProperties")
   listerProperties    Property[] @relation("ListerProperties")
   bookings            Booking[]
 }
 
+// ======= Property Model =======
 model Property {
   property_id Int       @id @default(autoincrement())
   landlord_id Int
@@ -35,19 +36,18 @@ model Property {
   created_at  DateTime  @default(now())
   updated_at  DateTime  @updatedAt
 
-  // Relations
   landlord User     @relation("LandlordProperties", fields: [landlord_id], references: [user_id])
   lister   User?    @relation("ListerProperties", fields: [lister_id], references: [user_id])
   bookings Booking[]
 }
 
+// ======= Booking Model =======
 model Booking {
   booking_id  Int      @id @default(autoincrement())
   user_id     Int
   property_id Int
   created_at  DateTime @default(now())
 
-  // Relations
   user     User     @relation(fields: [user_id], references: [user_id])
   property Property @relation(fields: [property_id], references: [property_id])
 }
