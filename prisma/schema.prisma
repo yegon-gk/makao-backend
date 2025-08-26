@@ -1,53 +1,122 @@
-// ======= Prisma Generator & Datasource =======
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"                     // Corrected: Ensure datasource block exists
-  url      = env("DATABASE_URL")             // Corrected: Reads DB URL from .env
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 // ======= User Model =======
 model User {
-  user_id             Int        @id @default(autoincrement())  // Primary key
-  username            String     @unique                       // Corrected: Added username field
-  email               String     @unique
-  password_hash       String                                 // Corrected: Field name must match Prisma model usage
-  phone               String?    @unique
-  role                String                                  // tenant | landlord | lister
+  user_id             Int      @id @default(autoincrement())
+  username            String   @unique
+  email               String   @unique
+  password_hash       String
+  phone               String?  @unique
+  role                String
   profile_data        Json?
-  verification_status Boolean    @default(false)
-  created_at          DateTime   @default(now())
-  updated_at          DateTime   @updatedAt
+  verification_status Boolean  @default(false)
+  created_at          DateTime @default(now())
+  updated_at          DateTime @updatedAt
 
-  landlordProperties  Property[] @relation("LandlordProperties")
-  listerProperties    Property[] @relation("ListerProperties")
-  bookings            Booking[]
+  landlordProperties Property[] @relation("LandlordProperties")
+  listerProperties   Property[] @relation("ListerProperties")
+  bookings           Booking[]
+  queues             Queue[]
+  payments           Payment[] // <- fixed: linked to Payment model
+  issuesReported     Issue[]    @relation("TenantIssues") // removed fields/references for proper one-to-many
+  issuesAssigned     Issue[]    @relation("LandlordIssues") // removed fields/references
 }
 
 // ======= Property Model =======
 model Property {
-  property_id Int       @id @default(autoincrement())
-  landlord_id Int
-  lister_id   Int?
-  title       String
-  description String?
-  created_at  DateTime  @default(now())
-  updated_at  DateTime  @updatedAt
+  property_id         Int      @id @default(autoincrement())
+  landlord_id         Int
+  lister_id           Int?
+  title               String
+  description         String?
+  location_data       Json?
+  price               Float?
+  bedrooms            Int?
+  amenities           Json?
+  property_type       String?
+  target_group        String?
+  house_rules         String?
+  cancellation_policy String?
+  status              String?  @default("available") // available/occupied
+  images              Json?
+  created_at          DateTime @default(now())
+  updated_at          DateTime @updatedAt
 
-  landlord User     @relation("LandlordProperties", fields: [landlord_id], references: [user_id])
-  lister   User?    @relation("ListerProperties", fields: [lister_id], references: [user_id])
+  landlord User      @relation("LandlordProperties", fields: [landlord_id], references: [user_id])
+  lister   User?     @relation("ListerProperties", fields: [lister_id], references: [user_id])
   bookings Booking[]
+  queues   Queue[]
+  issues   Issue[]
 }
 
 // ======= Booking Model =======
 model Booking {
-  booking_id  Int      @id @default(autoincrement())
-  user_id     Int
-  property_id Int
-  created_at  DateTime @default(now())
+  booking_id     Int      @id @default(autoincrement())
+  tenant_id      Int
+  property_id    Int
+  check_in       DateTime
+  check_out      DateTime
+  total_amount   Float?
+  booking_status String? // pending, confirmed, cancelled
+  payment_status String? // pending, completed, failed
+  created_at     DateTime @default(now())
 
-  user     User     @relation(fields: [user_id], references: [user_id])
+  user     User      @relation(fields: [tenant_id], references: [user_id])
+  property Property  @relation(fields: [property_id], references: [property_id])
+  payments Payment[] // <- changed from single Payment? to multiple payments for one-to-many
+}
+
+// ======= Queue Model =======
+model Queue {
+  queue_id          Int      @id @default(autoincrement())
+  tenant_id         Int
+  property_id       Int
+  position          Int?
+  joined_at         DateTime @default(now())
+  notification_sent Boolean  @default(false)
+  status            String?  @default("active") // active/cancelled
+
+  user     User     @relation(fields: [tenant_id], references: [user_id])
+  property Property @relation(fields: [property_id], references: [property_id])
+}
+
+// ======= Payment Model =======
+model Payment {
+  payment_id     Int       @id @default(autoincrement())
+  booking_id     Int
+  user_id        Int // linked to User
+  amount         Float
+  commission     Float?
+  payout_amount  Float?
+  payment_method String?
+  transaction_id String?
+  status         String?
+  processed_at   DateTime?
+
+  booking Booking @relation(fields: [booking_id], references: [booking_id])
+  user    User    @relation(fields: [user_id], references: [user_id]) // opposite relation
+}
+
+// ======= Issue Model =======
+model Issue {
+  issue_id    Int       @id @default(autoincrement())
+  tenant_id   Int
+  property_id Int
+  landlord_id Int
+  issue_type  String
+  description String?
+  status      String? // reported, resolved
+  reported_at DateTime  @default(now())
+  resolved_at DateTime?
+
+  tenant   User     @relation("TenantIssues", fields: [tenant_id], references: [user_id])
+  landlord User     @relation("LandlordIssues", fields: [landlord_id], references: [user_id])
   property Property @relation(fields: [property_id], references: [property_id])
 }
