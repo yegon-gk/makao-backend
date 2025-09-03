@@ -1,23 +1,40 @@
-const { verifyJwt } = require('../utils/jwt');
+// src/middlewares/auth.js
+import jwt from 'jsonwebtoken';
 
-function requireAuth(req, res, next) {
-  const header = req.headers.authorization || '';
-  const token = header.startsWith('Bearer ') ? header.slice(7) : header;
-  const payload = verifyJwt(token);
+// Middleware: Require authentication
+export const requireAuth = (req, res, next) => {
+  const token = req.headers['authorization']?.split(' ')[1]; // Expect: Bearer <token>
+  if (!token) {
+    return res.status(401).json({ message: 'Access denied. No token provided.' });
+  }
 
-  if (!payload) return res.status(401).json({ message: 'Unauthorized' });
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
+    console.log("Decoded token:", decoded);  // <-- DEBUG LOG
+    req.user = decoded; // Attach decoded payload to request
+    next();
+  } catch (err) {
+    return res.status(401).json({ message: 'Invalid or expired token.' });
+  }
+};
 
-  req.user = payload; // { user_id, role }
-  next();
-}
-
-function requireRoles(...roles) {
+// Middleware: Require specific roles
+export const requireRoles = (...roles) => {
   return (req, res, next) => {
-    if (!req.user) return res.status(401).json({ message: 'Unauthorized' });
-    if (!roles.includes(req.user.role))
-      return res.status(403).json({ message: 'Forbidden' });
+    console.log("Checking role:", req.user?.role, "Required:", roles);  // <-- DEBUG LOG
+
+    if (!req.user) {
+      return res.status(401).json({ message: 'Unauthorized.' });
+    }
+
+    // Ensure case-insensitive role comparison
+    const userRole = req.user.role?.toLowerCase();
+    const allowed = roles.map(r => r.toLowerCase());
+
+    if (!allowed.includes(userRole)) {
+      return res.status(403).json({ message: 'Forbidden: Insufficient permissions.' });
+    }
+
     next();
   };
-}
-
-module.exports = { requireAuth, requireRoles };
+};

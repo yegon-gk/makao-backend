@@ -1,7 +1,7 @@
 // src/controllers/authController.js
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import prisma from '../prismaClient.js';  // <- ensure correct import
+import prisma from '../prismaClient.js';
 
 // ===== REGISTER =====
 export const register = async (req, res) => {
@@ -9,19 +9,20 @@ export const register = async (req, res) => {
     const { username, email, password, phone, role } = req.body;
 
     // Validate required fields
-    if (!username || !email || !password || !role) {
-      return res.status(400).json({ message: 'Username, email, password, and role are required' });
+    if (!username || !email || !password) {
+      return res.status(400).json({ message: 'Username, email, and password are required' });
     }
 
     const trimmedUsername = username.trim();
     const trimmedEmail = email.trim().toLowerCase();
+    const userRole = role?.trim().toLowerCase() || "lister"; // Default role to lister
 
     // Check if email already exists
     const existingEmail = await prisma.user.findUnique({
       where: { email: trimmedEmail },
     });
     if (existingEmail) {
-      return res.status(409).json({ message: 'User details already exist' });
+      return res.status(409).json({ message: 'User with this email already exists' });
     }
 
     // Check if phone already exists (if provided)
@@ -30,7 +31,7 @@ export const register = async (req, res) => {
         where: { phone },
       });
       if (existingPhone) {
-        return res.status(409).json({ message: 'User details already exist' });
+        return res.status(409).json({ message: 'User with this phone already exists' });
       }
     }
 
@@ -42,9 +43,9 @@ export const register = async (req, res) => {
       data: {
         username: trimmedUsername,
         email: trimmedEmail,
-        password_hash: hashedPassword, // <- matches schema
+        password_hash: hashedPassword,
         phone: phone || null,
-        role,
+        role: userRole,
       },
       select: {
         user_id: true,
@@ -55,6 +56,8 @@ export const register = async (req, res) => {
       },
     });
 
+    console.log("New user registered:", user);
+
     return res.status(201).json({
       message: 'User registered successfully',
       user,
@@ -62,9 +65,8 @@ export const register = async (req, res) => {
   } catch (error) {
     console.error('Register error:', error);
 
-    // Handle Prisma unique constraint errors gracefully
     if (error.code === 'P2002') {
-      return res.status(409).json({ message: 'User details already exist' });
+      return res.status(409).json({ message: 'Duplicate entry detected' });
     }
 
     return res.status(500).json({ message: 'Server error' });
@@ -76,7 +78,6 @@ export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Validate required fields
     if (!email || !password) {
       return res.status(400).json({ message: 'Email and password are required' });
     }
@@ -98,12 +99,18 @@ export const login = async (req, res) => {
       return res.status(400).json({ message: 'Invalid email or password' });
     }
 
-    // Generate JWT
+    // Generate JWT with user_id included
     const token = jwt.sign(
-      { id: user.user_id, email: user.email, role: user.role },
+      {
+        user_id: user.user_id,  // <-- FIX: use user_id so requireAuth works correctly
+        email: user.email,
+        role: user.role || "lister",
+      },
       process.env.JWT_SECRET || 'secret',
       { expiresIn: '1d' }
     );
+
+    console.log("User logged in:", { user_id: user.user_id, role: user.role });
 
     return res.status(200).json({
       message: 'Login successful',

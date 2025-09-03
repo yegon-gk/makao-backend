@@ -3,6 +3,7 @@ import express from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
 import { register, login } from './controllers/authController.js';
+import propertyRoutes from './routes/propertyRoutes.js';
 
 dotenv.config();
 
@@ -20,11 +21,19 @@ app.get('/', (req, res) => {
   res.send('Makao Backend is running!');
 });
 
-// Auth routes
-app.post('/api/auth/register', register);  // <- Register new user
-app.post('/api/auth/login', login);        // <- Login user
+// ===== Auth routes =====
+app.post('/api/auth/register', register);
+app.post('/api/auth/login', login);
+
+// ===== Property routes =====
+app.use('/api/properties', propertyRoutes);
+
+// ===== 404 fallback =====
+app.use((req, res) => {
+  res.status(404).json({ error: 'Route not found' });
+});
 
 // ===== Start server =====
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`🚀 Server running on port ${PORT}`);
 });
