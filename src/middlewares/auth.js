@@ -10,7 +10,6 @@ export const requireAuth = (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
-    console.log("Decoded token:", decoded);  // <-- DEBUG LOG
     req.user = decoded; // Attach decoded payload to request
     next();
   } catch (err) {
@@ -18,16 +17,13 @@ export const requireAuth = (req, res, next) => {
   }
 };
 
-// Middleware: Require specific roles
+// Middleware: Require specific roles (Optional for later use)
 export const requireRoles = (...roles) => {
   return (req, res, next) => {
-    console.log("Checking role:", req.user?.role, "Required:", roles);  // <-- DEBUG LOG
-
     if (!req.user) {
       return res.status(401).json({ message: 'Unauthorized.' });
     }
 
-    // Ensure case-insensitive role comparison
     const userRole = req.user.role?.toLowerCase();
     const allowed = roles.map(r => r.toLowerCase());
 

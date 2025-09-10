@@ -10,7 +10,7 @@ import {
   updateProperty,
   deleteProperty,
 } from '../controllers/propertyController.js';
-import { requireAuth, requireRoles } from '../middlewares/auth.js';
+import { requireAuth } from '../middlewares/auth.js';
 
 const router = Router();
 
@@ -27,23 +27,13 @@ router.post('/search', search);
 // ===== Detail =====
 router.get('/:id', getById);
 
-// ===== Create (Lister/Landlord/Admin only) =====
-router.post(
-  '/',
-  requireAuth,
-  requireRoles('lister', 'landlord', 'admin'),
-  createProperty
-);
+// ===== Create (Any logged-in user can create) =====
+router.post('/', requireAuth, createProperty);
 
-// ===== Update (Owner or Admin) =====
-router.put(
-  '/:id',
-  requireAuth,
-  requireRoles('lister', 'landlord', 'admin'),
-  updateProperty
-);
+// ===== Update (Any logged-in user can update) =====
+router.put('/:id', requireAuth, updateProperty);
 
-// ===== Delete (Admin only) =====
-router.delete('/:id', requireAuth, requireRoles('admin'), deleteProperty);
+// ===== Delete (Still restricted to Admin) =====
+router.delete('/:id', requireAuth, deleteProperty);
 
 export default router;

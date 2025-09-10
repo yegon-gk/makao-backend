@@ -166,7 +166,6 @@ export async function createProperty(req, res) {
       images,
     } = req.body;
 
-    // Validate required fields
     if (!title) {
       return res.status(400).json({ message: "Title is required" });
     }
@@ -197,6 +196,9 @@ export async function createProperty(req, res) {
         lister_id: landlordId,
       },
     });
+
+    // ✅ Log property on terminal
+    console.log("New property created:", property);
 
     return res.status(201).json({
       message: 'Property created successfully',

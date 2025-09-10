@@ -1,11 +1,12 @@
-const { PrismaClient } = require('@prisma/client');
+// src/config/prisma.js
+import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient({
-  log: ['warn', 'error'], // add 'query' while debugging if you like
+  log: ['warn', 'error'], // add 'query' while debugging if needed
 });
 
 process.on('beforeExit', async () => {
   await prisma.$disconnect();
 });
 
-module.exports = prisma;
+export default prisma;
