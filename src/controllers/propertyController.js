@@ -1,7 +1,7 @@
 // src/controllers/propertyController.js
 import prisma from '../prismaClient.js';
 
-// ===== GET FEATURED PROPERTIES =====
+// GET FEATURED PROPERTIES FUNCTION
 export async function getFeatured(req, res) {
   try {
     const properties = await prisma.property.findMany({
@@ -31,7 +31,7 @@ export async function getFeatured(req, res) {
   }
 }
 
-// ===== GET ALL PROPERTIES =====
+// GET ALL PROPERTIES FUNCTION
 export async function getProperties(req, res) {
   try {
     const properties = await prisma.property.findMany();
@@ -42,7 +42,7 @@ export async function getProperties(req, res) {
   }
 }
 
-// ===== GET SEARCH SUGGESTIONS =====
+// GET SEARCH SUGGESTIONS FUNCTION
 export async function getSuggestions(req, res) {
   try {
     const properties = await prisma.property.findMany({
@@ -74,7 +74,7 @@ export async function getSuggestions(req, res) {
   }
 }
 
-// ===== SEARCH PROPERTIES =====
+// SEARCH PROPERTIES FUNCTION
 export async function search(req, res) {
   try {
     const { location, min_price, max_price, bedrooms, target_group, amenities } = req.body;
@@ -121,7 +121,7 @@ export async function search(req, res) {
   }
 }
 
-// ===== GET PROPERTY DETAIL =====
+// GET PROPERTY DETAILS FUNCTION
 export async function getById(req, res) {
   try {
     const { id } = req.params;
@@ -151,7 +151,7 @@ export async function getById(req, res) {
   }
 }
 
-// ===== CREATE PROPERTY =====
+// CREATE PROPERTY FUNCTION
 export async function createProperty(req, res) {
   try {
     const {
@@ -197,7 +197,7 @@ export async function createProperty(req, res) {
       },
     });
 
-    // ✅ Log property on terminal
+    // Log property on terminal
     console.log("New property created:", property);
 
     return res.status(201).json({
@@ -210,7 +210,7 @@ export async function createProperty(req, res) {
   }
 }
 
-// ===== UPDATE PROPERTY =====
+// UPDATE PROPERTY FUNCTION
 export async function updateProperty(req, res) {
   try {
     const { id } = req.params;
@@ -223,7 +223,13 @@ export async function updateProperty(req, res) {
       return res.status(404).json({ message: 'Property not found' });
     }
 
-    if (req.user.role !== 'admin' && existing.landlord_id !== req.user.user_id) {
+    // ✅ Allow admin or landlord or lister who created the property
+    const userRole = req.user.role?.toLowerCase();
+    const isAdmin = userRole === 'admin';
+    const isLandlord = existing.landlord_id === req.user.user_id;
+    const isLister = userRole === 'lister'; // You can change this logic as needed
+
+    if (!(isAdmin || isLandlord || isLister)) {
       return res.status(403).json({ message: 'Not authorized to update this property' });
     }
 
@@ -242,7 +248,8 @@ export async function updateProperty(req, res) {
   }
 }
 
-// ===== DELETE PROPERTY =====
+
+// DELETE PROPERTY FUNCTION
 export async function deleteProperty(req, res) {
   try {
     const { id } = req.params;
@@ -255,15 +262,28 @@ export async function deleteProperty(req, res) {
       return res.status(404).json({ message: 'Property not found' });
     }
 
-    if (req.user.role !== 'admin') {
+    const userRole = (req.user.role || '').toLowerCase();
+    const userId = req.user.user_id;
+
+    const isAdmin = userRole === 'admin';
+    const isLandlord = userRole === 'landlord' && existing.landlord_id === userId;
+    const isLister = userRole === 'lister' && existing.lister_id === userId;
+
+    // Allow admin, landlord (own property), or lister (own property)
+    if (!isAdmin && !isLandlord && !isLister) {
       return res.status(403).json({ message: 'Not authorized to delete this property' });
     }
 
-    await prisma.property.delete({
+    // Soft delete instead of removing record
+    const deletedProperty = await prisma.property.update({
       where: { property_id: Number(id) },
+      data: { status: 'deleted', updated_at: new Date() },
     });
 
-    return res.status(200).json({ message: 'Property deleted successfully' });
+    return res.status(200).json({
+      message: 'Property deleted successfully',
+      property: deletedProperty,
+    });
   } catch (error) {
     console.error('deleteProperty error:', error);
     return res.status(500).json({ message: 'Server error', error: error.message });

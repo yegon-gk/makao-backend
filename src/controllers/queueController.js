@@ -1,31 +1,36 @@
-import prisma from '../prismaClient.js';  
-
+// src/controllers/queueController.js
+import prisma from "../prismaClient.js";
 
 export const joinQueue = async (req, res) => {
   try {
     const { tenant_id, property_id } = req.body;
 
-    if (!tenant_id || !property_id) {
-      return res.status(400).json({ message: "tenant_id and property_id required" });
-    }
+    const position = await prisma.queue.count({ where: { property_id } }) + 1;
 
-    // Count current queue to assign position
-    const count = await prisma.queue.count({
-      where: { property_id: Number(property_id), status: "active" }
-    });
-
-    const queue = await prisma.queue.create({
+    const queueEntry = await prisma.queue.create({
       data: {
-        tenant_id: Number(tenant_id),
-        property_id: Number(property_id),
-        position: count + 1
-      }
+        tenant_id,
+        property_id,
+        position,
+      },
     });
 
-    console.log("New Queue Entry:", queue);
-    res.status(201).json({ message: "Added to queue successfully", queue });
+    res.status(201).json({ message: "Joined queue successfully", queueEntry });
   } catch (error) {
     console.error("Queue Error:", error);
-    res.status(500).json({ message: "Internal server error" });
+    res.status(500).json({ error: "Queue join failed" });
+  }
+};
+
+export const leaveQueue = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    await prisma.queue.delete({ where: { queue_id: parseInt(id) } });
+
+    res.json({ message: "Left queue successfully" });
+  } catch (error) {
+    console.error("Leave Queue Error:", error);
+    res.status(500).json({ error: "Leave queue failed" });
   }
 };

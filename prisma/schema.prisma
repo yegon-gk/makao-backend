@@ -24,7 +24,7 @@ model User {
   listerProperties   Property[] @relation("ListerProperties")
   bookings           Booking[]
   queues             Queue[]
-  payments           Payment[] // <- fixed: linked to Payment model
+  payments           Payment[] 
   issuesReported     Issue[]    @relation("TenantIssues") // removed fields/references for proper one-to-many
   issuesAssigned     Issue[]    @relation("LandlordIssues") // removed fields/references
 }
@@ -64,13 +64,13 @@ model Booking {
   check_in       DateTime
   check_out      DateTime
   total_amount   Float?
-  booking_status String? // pending, confirmed, cancelled
-  payment_status String? // pending, completed, failed
+  booking_status String?
+  payment_status String?
   created_at     DateTime @default(now())
 
   user     User      @relation(fields: [tenant_id], references: [user_id])
   property Property  @relation(fields: [property_id], references: [property_id])
-  payments Payment[] // <- changed from single Payment? to multiple payments for one-to-many
+  payments Payment[] 
 }
 
 // ======= Queue Model =======
